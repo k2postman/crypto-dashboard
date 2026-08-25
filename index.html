@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CryptoDash — Binance · OKX 통합 대시보드</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">◆</span> CryptoDash
+      <span class="tagline">Binance · OKX</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="copybot">봇 카피</button>
+      <button class="tab" data-tab="market">시세</button>
+      <button class="tab" data-tab="portfolio">포트폴리오</button>
+      <button class="tab" data-tab="alerts">알림</button>
+      <button class="tab" data-tab="settings">설정</button>
+    </nav>
+    <div class="status">
+      <span id="ws-status" class="dot off"></span><span id="ws-label">연결 중…</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <!-- ── 봇 카피 탭 (우선) ─────────────────────────────── -->
+  <main id="tab-copybot" class="panel active">
+    <section class="grid grid-copybot">
+      <div class="card span-2">
+        <h2>카피봇 현황 <span class="badge demo">DEMO</span></h2>
+        <p class="hint">실제 주문은 발생하지 않습니다. 리더 트레이더의 포지션 변동을 시뮬레이션으로 표시합니다.</p>
+        <table class="table" id="copybots-table">
+          <thead>
+            <tr><th>리더 봇</th><th>거래소</th><th>전략</th><th>상태</th><th>당일 수익률</th><th>누적 수익률</th><th>팔로워 수</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Momentum-X</td><td>Binance</td><td>모멘텀 스캘핑</td><td><span class="pill on">실행중</span></td><td class="pos">+3.42%</td><td class="pos">+128.7%</td><td>342</td></tr>
+            <tr><td>GridMaster</td><td>OKX</td><td>그리드 매매</td><td><span class="pill on">실행중</span></td><td class="pos">+1.08%</td><td class="pos">+64.2%</td><td>198</td></tr>
+            <tr><td>DCA-Bot</td><td>Binance</td><td>적립식 DCA</td><td><span class="pill idle">대기</span></td><td class="neg">-0.31%</td><td class="pos">+22.5%</td><td>87</td></tr>
+            <tr><td>FundingHarvest</td><td>OKX</td><td>펀딩비 차익</td><td><span class="pill on">실행중</span></td><td class="pos">+0.44%</td><td class="pos">+41.9%</td><td>121</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>실시간 시그널 피드</h2>
+        <ul class="feed" id="signal-feed">
+          <li class="feed-item"><b>[Momentum-X]</b> BTCUSDT <span class="side long">롱 진입</span> @ <span class="price" data-feed="binance:BTCUSDT">—</span></li>
+          <li class="feed-item"><b>[GridMaster]</b> ETH-USDT 그리드 재배치 · 구간 2,850–3,150</li>
+          <li class="feed-item"><b>[FundingHarvest]</b> 펀딩비 +0.021% → 롱 유지</li>
+        </ul>
+      </div>
+
+      <div class="card span-3">
+        <h2>메인 차트 — BTC/USDT (Binance)</h2>
+        <div id="tv-chart-btc" style="height:420px"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 시세 탭 ──────────────────────────────────────── -->
+  <main id="tab-market" class="panel">
+    <section class="grid">
+      <div class="card span-3">
+        <h2>티커 보드 <span class="hint-inline">Binance 실시간 WebSocket · OKX REST 폴링(프록시 필요)</span></h2>
+        <table class="table ticker-table" id="ticker-table">
+          <thead>
+            <tr><th>심볼</th><th>바이낸스 가격</th><th>24h 변화율</th><th>24h 고가</th><th>24h 저가</th><th>OKX 가격*</th><th>김치 프리미엄*</th></tr>
+          </thead>
+          <tbody><!-- JS가 채움 --></tbody>
+        </table>
+        <p class="footnote">* OKX 공개 API는 일부 지역/IP에서 접근이 제한됩니다. 서버 프록시를 설정하면 자동으로 활성화됩니다.</p>
+      </div>
+      <div class="card span-3">
+        <h2>ETH/USDT 차트</h2>
+        <div id="tv-chart-eth" style="height:380px"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 포트폴리오 탭 ───────────────────────────────── -->
+  <main id="tab-portfolio" class="panel">
+    <section class="grid">
+      <div class="stat-row">
+        <div class="stat"><div class="stat-label">총 평가액 (USDT)</div><div class="stat-value" id="pf-total">—</div></div>
+        <div class="stat"><div class="stat-label">당일 손익</div><div class="stat-value" id="pf-day">—</div></div>
+        <div class="stat"><div class="stat-label">보유 자산 수</div><div class="stat-value" id="pf-count">—</div></div>
+      </div>
+      <div class="card span-3">
+        <h2>보유 자산 <span class="hint-inline">데모 데이터 · settings 탭에서 내 잔고 연결 가능</span></h2>
+        <table class="table" id="portfolio-table">
+          <thead><tr><th>자산</th><th>수량</th><th>현재가</th><th>평가액</th><th>24h</th><th>비중</th></tr></thead>
+          <tbody><!-- JS가 채움 --></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 알림 탭 ──────────────────────────────────────── -->
+  <main id="tab-alerts" class="panel">
+    <section class="grid">
+      <div class="card span-3">
+        <h2>가격 알림 관리</h2>
+        <form id="alert-form" class="alert-form">
+          <select id="alert-symbol">
+            <option>BTCUSDT</option><option>ETHUSDT</option><option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
+          </select>
+          <select id="alert-cond"><option value="above">이상 도달</option><option value="below">이하 도달</option></select>
+          <input type="number" id="alert-price" step="any" placeholder="목표 가격" required />
+          <button type="submit">알림 추가</button>
+        </form>
+        <ul class="feed" id="alert-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 설정 탭 ──────────────────────────────────────── -->
+  <main id="tab-settings" class="panel">
+    <section class="grid">
+      <div class="card span-3">
+        <h2>API 연결 설정</h2>
+        <p class="hint">키는 이 브라우저(localStorage)에만 저장되며 서버로 전송되지 않습니다. 정식 배포 시에는 백엔드 비밀 저장소 사용을 권장합니다.</p>
+        <form id="api-form" class="api-form">
+          <label>바이낸스 API Key <input id="binance-key" autocomplete="off" placeholder="선택사항 — 공개 시세는 키 없이 동작" /></label>
+          <label>바이낸스 Secret <input id="binance-secret" type="password" autocomplete="off" placeholder="잔고 조회에만 사용" /></label>
+          <label>OKX API Key <input id="okx-key" autocomplete="off" placeholder="선택사항" /></label>
+          <label>OKX Secret <input id="okx-secret" type="password" autocomplete="off" /></label>
+          <label>OKX Passphrase <input id="okx-pass" type="password" autocomplete="off" /></label>
+          <button type="submit">저장</button>
+          <button type="button" id="api-clear">저장된 키 삭제</button>
+        </form>
+        <p class="footnote">⚠️ 거래 권한 없는 읽기 전용 키만 사용하세요. 서버에서 직접 호출이 막힌 지역은 프록시 설정 필요.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">CryptoDash — 개인 프로젝트 · Altrady 스타일 레이아웃 참고, 독자 구현 · 시세: Binance public data / OKX public API</footer>
+
+  <script src="https://unpkg.com/lightweight-charts@4.1.4/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -266,6 +266,139 @@ document.addEventListener('click', e => {
 });
 renderLeaders();
 
+/* ── Paste-board auto filter (리더보드 붙여넣기 → 자동 판정) ── */
+function parseNumber(tok) {
+  if (tok == null) return null;
+  let s = String(tok).trim().replace(/,/g, '');
+  s = s.replace('%', '').trim();
+  const m = s.match(/([-+]?[\d.]+)\s*(k|m|b|만|천|억)?/i);
+  if (!m) return null;
+  let v = parseFloat(m[1]);
+  if (isNaN(v)) return null;
+  const unit = (m[2] || '').toLowerCase();
+  if (unit === 'k' || unit === '천') v *= 1e3;
+  else if (unit === 'm' || unit === '만') v *= 1e4;
+  else if (unit === 'b' || unit === '억') v *= 1e8;
+  return v;
+}
+
+// Heuristic parser: per line, pull every "N%" token (ROI first, MDD second),
+// every bare number (followers), and the first word-ish token as the name.
+function parseBoard(text) {
+  const rows = [];
+  const PCT_RE = /[+\-]?\d[\d.,]*\s*%/g;
+  const NUM_RE = /[+\-]?\d[\d.,]*\s*(?:k|m|b|만|천|억)?(?!\s*%)/gi;
+  const HEADER_WORDS = /^(roi|mdd|pnl|pnl%|roi%|follower|followers|trader|leader|rank|no\.?|#|이름|트레이더|리더|팔로워|수익률|누적|랭킹|순위)$/i;
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || !/\d/.test(line)) continue;
+
+    // 1) all percentage values in order
+    const pctVals = [];
+    PCT_RE.lastIndex = 0;
+    let mm;
+    while ((mm = PCT_RE.exec(line)) !== null) {
+      const v = parseNumber(mm[0]);
+      if (v != null) pctVals.push(v);
+    }
+
+    // 2) strip % tokens, then collect bare numbers (skip tiny indices like rank 1..50)
+    const rest = line.replace(PCT_RE, ' ');
+    const nums = [];
+    NUM_RE.lastIndex = 0;
+    while ((mm = NUM_RE.exec(rest)) !== null) {
+      const v = parseNumber(mm[0]);
+      if (v != null && Math.abs(v) > 20) nums.push(v);   // ranks 1..20 ignored
+    }
+    const followers = nums.length ? nums.reduce((a,b)=>Math.abs(a)>=Math.abs(b)?a:b) : null;
+
+    // 3) name: first segment containing letters/hangul that isn't a header word
+    let name = null;
+    const segs = line.split(/[\t]+|\s{2,}|\s*[|·]\s*/).map(s=>s.trim()).filter(Boolean);
+    const pool = segs.length > 1 ? segs : line.split(/\s+/);
+    for (const seg of pool) {
+      if (HEADER_WORDS.test(seg)) continue;
+      if (/^[-+]?[\d.,]+\s*%?$/.test(seg)) continue;
+      if (/[A-Za-z가-힣]/.test(seg) && seg.length >= 2) { name = seg.replace(/^[\d.#.\-\s]+/, '').trim(); break; }
+    }
+    if (!name) continue;
+
+    const roi  = pctVals.length ? pctVals[0] : null;
+    const mdd  = pctVals.length > 1 ? pctVals.slice(1).reduce((a,b)=>a<b?a:b) : null;
+    if (roi == null && followers == null) continue;
+    rows.push({ name, roi, mdd, followers });
+  }
+  return rows;
+}
+
+let lastAnalysis = [];
+function analyzeBoard() {
+  const text = $('#paste-board').value;
+  const minPnl = parseFloat($('#f-minpnl').value);
+  const maxMdd = parseFloat($('#f-maxmdd').value);       // e.g. -25 means worse-than -25 fails
+  const minFol = parseFloat($('#f-minfol').value);
+  const maxFol = parseFloat($('#f-maxfol').value);
+
+  const rows = parseBoard(text);
+  lastAnalysis = [];
+  const tbody = $('#filter-table tbody');
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">붙여넣은 텍스트에서 리더 행을 찾지 못했습니다. 표 형식을 확인해주세요.</td></tr>';
+    return;
+  }
+
+  for (const r of rows) {
+    const issues = [];
+    if (r.roi != null && r.roi < minPnl) issues.push(`수익률 미달 (${minPnl}% 미만)`);
+    if (r.roi != null && r.roi > 500) issues.push('수익률 과다 — 레버리지 의심');
+    if (r.mdd != null && r.mdd < maxMdd) issues.push(`MDD 한도 초과 (${maxMdd}%보다 나쁨)`);
+    if (r.followers != null && r.followers < minFol) issues.push('팔로워 부족');
+    if (r.followers != null && r.followers > maxFol) issues.push('팔로워 과다 — 슬리피지');
+
+    let cls, label;
+    if (!issues.length) { cls='verdict-pass'; label='✓ 기준 통과'; }
+    else if (issues.some(i => i.includes('미달') || i.includes('초과') || i.includes('부족'))) { cls='verdict-fail'; label='✗ ' + issues.join(' · '); }
+    else { cls='verdict-warn'; label='△ ' + issues.join(' · '); }
+
+    lastAnalysis.push({ ...r, pass: cls==='verdict-pass' });
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${r.name}</b></td>
+      <td class="${(r.roi??0)>=0?'pos':'neg'}">${r.roi==null?'—':(r.roi>=0?'+':'')+r.roi+'%'}</td>
+      <td>${r.mdd==null?'—':r.mdd+'%'}</td>
+      <td>${r.followers==null?'—':Math.round(r.followers).toLocaleString()}</td>
+      <td class="${cls}">${label}</td>
+      <td>${r.pass?'<span class="pill on">대상</span>':'<span class="pill idle">제외</span>'}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+$('#btn-analyze').addEventListener('click', analyzeBoard);
+
+$('#btn-passall').addEventListener('click', () => {
+  if (!lastAnalysis.length) analyzeBoard();
+  const list = loadLeaders();
+  let added = 0;
+  for (const r of lastAnalysis) {
+    if (!r.pass) continue;
+    if (list.some(l => l.name === r.name)) continue;
+    list.push({
+      name: r.name, exchange: '—', strategy: '리더보드 발굴',
+      pnl: r.roi == null ? '' : String(r.roi),
+      mdd: r.mdd == null ? '' : String(r.mdd),
+      addedAt: Date.now(),
+    });
+    added++;
+  }
+  saveLeaders(list);
+  renderLeaders();
+  alert(`통과 리더 ${added}명을 추적 목록에 등록했습니다.`);
+});
+
 /* ── Boot ── */
 buildTickerRows();
 loadKeys();

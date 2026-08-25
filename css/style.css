@@ -119,6 +119,27 @@ body {
 
 .checklist-table td:nth-child(3) { color:var(--muted); font-size:12.5px; }
 
+/* ── Paste-board auto filter (발굴 탭) ── */
+#paste-board {
+  width:100%; background:#0f1420; color:var(--text);
+  border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; font-size:13px; font-family:inherit; resize:vertical;
+}
+.filter-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0; }
+.filter-row label { display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--muted); }
+.filter-row input {
+  width:110px; background:#0f1420; color:var(--text);
+  border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:13px;
+}
+.filter-row button {
+  background:var(--accent); border:none; color:#fff;
+  padding:10px 20px; border-radius:8px; cursor:pointer; font-weight:700;
+}
+.filter-row button.ghost { background:#2a3348; }
+.verdict-pass { color:var(--green); font-weight:700; }
+.verdict-fail { color:var(--red); font-weight:600; font-size:12.5px; }
+.verdict-warn { color:var(--yellow); font-weight:600; font-size:12.5px; }
+
 @media (max-width: 980px) {
   .leader-links { grid-template-columns:1fr; }
 }

@@ -14,6 +14,8 @@
     </div>
     <nav class="tabs">
       <button class="tab active" data-tab="copybot">봇 카피</button>
+      <button class="tab" data-tab="leaders">리더 발굴</button>
+      <button class="tab" data-tab="tracking">리더 추적</button>
       <button class="tab" data-tab="market">시세</button>
       <button class="tab" data-tab="portfolio">포트폴리오</button>
       <button class="tab" data-tab="alerts">알림</button>
@@ -56,6 +58,69 @@
       <div class="card span-3">
         <h2>메인 차트 — BTC/USDT (Binance)</h2>
         <div id="tv-chart-btc" style="height:420px"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 리더 발굴 탭 ─────────────────────────────────── -->
+  <main id="tab-leaders" class="panel">
+    <section class="grid">
+      <div class="card span-3">
+        <h2>공식 카피트레이딩 리더보드 모음</h2>
+        <p class="hint">각 거래소 공식 리더 랭킹입니다. 로그인 후 수익률·MDD·팔로워수·운영기간을 확인하고 마음에 드는 리더를 찾아 "리더 추적" 탭에 등록하세요.</p>
+        <div class="leader-links">
+          <a href="https://www.binance.com/ko/copy-trading" target="_blank" rel="noopener">
+            <b>Binance 카피트레이딩</b><span>선물 리더 포트폴리오 랭킹 · PnL/MDD/팔로워 공개</span></a>
+          <a href="https://www.okx.com/ko-kr/copy-trading" target="_blank" rel="noopener">
+            <b>OKX 카피트레이딩</b><span>리더 랭킹 · 수익곡선·최대드로우다운 공개</span></a>
+          <a href="https://www.bybit.com/copytrading/" target="_blank" rel="noopener">
+            <b>Bybit 카피트레이딩</b><span>리더보드 · 90일 수익률 기준 정렬</span></a>
+          <a href="https://www.bitget.com/ko/copy-trading" target="_blank" rel="noopener">
+            <b>Bitget 카피트레이딩</b><span>엘리트 트레이더 랭킹</span></a>
+          <a href="https://www.coinglass.com/tv/Binance_BTCUSDT" target="_blank" rel="noopener">
+            <b>CoinGlass 트레이더 랭킹</b><span>거래소별 실계좌 손익 랭킹 (공개 데이터)</span></a>
+          <a href="https://coinmarketcap.com/community/copytrading/" target="_blank" rel="noopener">
+            <b>CMC 커뮤니티 인사이트</b><span>카피트레이딩 트렌드 참고자료</span></a>
+        </div>
+      </div>
+
+      <div class="card span-3">
+        <h2>리더 고르기 체크리스트 — 이 기준 통과한 리더만</h2>
+        <table class="table checklist-table">
+          <thead><tr><th>기준</th><th>통과 조건</th><th>이유</th></tr></thead>
+          <tbody>
+            <tr><td><b>운영 기간</b></td><td>6개월 이상</td><td>단기 운세 리더 걸러냄 — 불장 한파 때 같이 무너지는 경우 다수</td></tr>
+            <tr><td><b>누적 수익률</b></td><td>+50% 이상 (연율화 아님)</td><td>너무 높으면(연 500%+) 레버리지 과다 신호</td></tr>
+            <tr><td><b>최대 낙폭 MDD</b></td><td>-25% 이내</td><td>MDD -60% 리더는 복구에 몇 배가 필요함</td></tr>
+            <tr><td><b>샤프 비슷 지표</b></td><td>수익/변동성 꾸준함</td><td>수익곡선이 계단형으로 완만히 오르는지 확인</td></tr>
+            <tr><td><b>팔로워 수</b></td><td>100~5,000명</td><td>너무 적으면 정보 부족, 너무 많으면 슬리피지 발생</td></tr>
+            <tr><td><b>포지션 스타일</b></td><td>본인 성향과 일치</td><td>스캘핑 리더를 장기 카피하면 수수료만 손해</td></tr>
+            <tr><td><b>손절 규칙</b></td><td>스탑로스 명시 여부</td><td>무손절 리더는 언젠가 계좌 통째로 녹임</td></tr>
+          </tbody>
+        </table>
+        <p class="footnote">⚠️ 과거 수익률은 미래를 보장하지 않습니다. 카피 금액은 잃어도 괜찮은 돈으로 시작하세요.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 리더 추적 탭 ─────────────────────────────────── -->
+  <main id="tab-tracking" class="panel">
+    <section class="grid">
+      <div class="card span-3">
+        <h2>내 리더 후보 추적</h2>
+        <p class="hint">발견한 리더를 등록하면 브라우저(localStorage)에 저장되고, 주기적으로 시세와 함께 상태를 점검해줍니다. 실적 수치는 직접 입력·갱신하는 방식입니다.</p>
+        <form id="leader-form" class="alert-form">
+          <input id="leader-name" placeholder="리더 이름" required />
+          <select id="leader-exchange"><option>Binance</option><option>OKX</option><option>Bybit</option><option>Bitget</option></select>
+          <select id="leader-strategy"><option>모멘텀</option><option>그리드</option><option>DCA</option><option>펀딩비 차익</option><option>추세 추종</option><option>기타</option></select>
+          <input id="leader-pnl" type="number" step="any" placeholder="누적 수익률 %" />
+          <input id="leader-mdd" type="number" step="any" placeholder="MDD % (음수)" />
+          <button type="submit">등록</button>
+        </form>
+        <table class="table" id="tracking-table">
+          <thead><tr><th>리더</th><th>거래소</th><th>전략</th><th>누적 수익률</th><th>MDD</th><th>체크 결과</th><th>관리</th></tr></thead>
+          <tbody><!-- JS --></tbody>
+        </table>
       </div>
     </section>
   </main>

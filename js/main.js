@@ -200,6 +200,72 @@ $('#api-clear').addEventListener('click', () => {
   loadKeys();
 });
 
+/* ── Leader tracking (추적 탭) ── */
+const LS_LEADERS = 'cryptodash_leaders';
+function loadLeaders() {
+  try { return JSON.parse(localStorage.getItem(LS_LEADERS) || '[]'); }
+  catch { return []; }
+}
+function saveLeaders(list) { localStorage.setItem(LS_LEADERS, JSON.stringify(list)); }
+
+function checkLeader(l) {
+  const issues = [];
+  const pnl = l.pnl == null || l.pnl === '' ? null : parseFloat(l.pnl);
+  const mdd = l.mdd == null || l.mdd === '' ? null : parseFloat(l.mdd);
+  if (pnl != null && pnl > 500) issues.push('수익률 과다 — 레버리지 과다 의심');
+  if (pnl != null && pnl < 0) issues.push('누적 손실 상태');
+  if (mdd != null && mdd < -25) issues.push('MDD 기준 초과');
+  if (!issues.length) return { cls:'pos', label:'기준 통과' };
+  return { cls:'neg', label:issues.join(' · ') };
+}
+
+function renderLeaders() {
+  const tbody = $('#tracking-table tbody');
+  if (!tbody) return;
+  const list = loadLeaders();
+  tbody.innerHTML = '';
+  list.forEach((l, i) => {
+    const chk = checkLeader(l);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${l.name}</b></td>
+      <td>${l.exchange}</td>
+      <td>${l.strategy}</td>
+      <td class="${l.pnl>=0?'pos':'neg'}">${l.pnl==null||l.pnl===''?'—':(l.pnl>=0?'+':'')+l.pnl+'%'}</td>
+      <td>${l.mdd==null||l.mdd===''?'—':l.mdd+'%'}</td>
+      <td class="${chk.cls}" style="font-size:12.5px">${chk.label}</td>
+      <td><button data-del="${i}" class="pill idle" style="border:none;cursor:pointer">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+const leaderForm = $('#leader-form');
+if (leaderForm) leaderForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const list = loadLeaders();
+  list.push({
+    name: $('#leader-name').value.trim(),
+    exchange: $('#leader-exchange').value,
+    strategy: $('#leader-strategy').value,
+    pnl: $('#leader-pnl').value,
+    mdd: $('#leader-mdd').value,
+    addedAt: Date.now(),
+  });
+  saveLeaders(list);
+  leaderForm.reset();
+  renderLeaders();
+});
+
+document.addEventListener('click', e => {
+  if (e.target.dataset && e.target.dataset.del !== undefined) {
+    const list = loadLeaders();
+    list.splice(parseInt(e.target.dataset.del), 1);
+    saveLeaders(list);
+    renderLeaders();
+  }
+});
+renderLeaders();
+
 /* ── Boot ── */
 buildTickerRows();
 loadKeys();

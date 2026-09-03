@@ -139,6 +139,8 @@ body {
 .verdict-pass { color:var(--green); font-weight:700; }
 .verdict-fail { color:var(--red); font-weight:600; font-size:12.5px; }
 .verdict-warn { color:var(--yellow); font-weight:600; font-size:12.5px; }
+.file-button { cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.file-button input { display:none; }
 
 @media (max-width: 980px) {
   .leader-links { grid-template-columns:1fr; }

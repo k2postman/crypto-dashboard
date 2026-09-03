@@ -208,15 +208,39 @@ function loadLeaders() {
 }
 function saveLeaders(list) { localStorage.setItem(LS_LEADERS, JSON.stringify(list)); }
 
-function checkLeader(l) {
+function evaluateLeader(r, rules = {}) {
+  const minPnl = rules.minPnl ?? 50;
+  const maxMdd = rules.maxMdd ?? -25;
+  const minFol = rules.minFol ?? 100;
+  const maxFol = rules.maxFol ?? 5000;
   const issues = [];
-  const pnl = l.pnl == null || l.pnl === '' ? null : parseFloat(l.pnl);
-  const mdd = l.mdd == null || l.mdd === '' ? null : parseFloat(l.mdd);
-  if (pnl != null && pnl > 500) issues.push('수익률 과다 — 레버리지 과다 의심');
-  if (pnl != null && pnl < 0) issues.push('누적 손실 상태');
-  if (mdd != null && mdd < -25) issues.push('MDD 기준 초과');
-  if (!issues.length) return { cls:'pos', label:'기준 통과' };
-  return { cls:'neg', label:issues.join(' · ') };
+  const missing = [];
+  const pnl = r.pnl == null || r.pnl === '' ? null : Number(r.pnl);
+  const mdd = r.mdd == null || r.mdd === '' ? null : Number(r.mdd);
+  const followers = r.followers == null || r.followers === '' ? null : Number(r.followers);
+  if (pnl == null || Number.isNaN(pnl)) missing.push('수익률');
+  else if (pnl < minPnl) issues.push(`수익률 미달 (${minPnl}% 미만)`);
+  else if (pnl > 500) issues.push('수익률 과다 — 레버리지 의심');
+  if (mdd == null || Number.isNaN(mdd)) missing.push('MDD');
+  else if (mdd < maxMdd) issues.push(`MDD 한도 초과 (${maxMdd}%보다 나쁨)`);
+  if (followers == null || Number.isNaN(followers)) missing.push('팔로워');
+  else if (followers < minFol) issues.push('팔로워 부족');
+  else if (followers > maxFol) issues.push('팔로워 과다 — 슬리피지');
+  const completeness = 3 - missing.length;
+  const score = Math.max(0, Math.round(
+    (pnl != null && pnl >= minPnl && pnl <= 500 ? 35 : 0) +
+    (mdd != null && mdd >= maxMdd ? 35 : 0) +
+    (followers != null && followers >= minFol && followers <= maxFol ? 15 : 0) +
+    completeness * 5
+  ));
+  if (missing.length) return { cls:'verdict-warn', label:'△ 확인 필요: ' + missing.join(', ') + (issues.length ? ' · ' + issues.join(' · ') : ''), score, pass:false };
+  if (issues.length) return { cls:'verdict-fail', label:'✗ ' + issues.join(' · '), score, pass:false };
+  return { cls:'verdict-pass', label:'✓ 기준 통과', score, pass:true };
+}
+
+function checkLeader(l) {
+  const result = evaluateLeader({ pnl:l.pnl, mdd:l.mdd, followers:l.followers });
+  return { cls: result.pass ? 'pos' : result.cls === 'verdict-warn' ? 'warn' : 'neg', label: result.label };
 }
 
 function renderLeaders() {
@@ -346,24 +370,14 @@ function analyzeBoard() {
   tbody.innerHTML = '';
 
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">붙여넣은 텍스트에서 리더 행을 찾지 못했습니다. 표 형식을 확인해주세요.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted)">붙여넣은 텍스트에서 리더 행을 찾지 못했습니다. 표 형식을 확인해주세요.</td></tr>';
     return;
   }
 
+  const rules = { minPnl, maxMdd, minFol, maxFol };
   for (const r of rows) {
-    const issues = [];
-    if (r.roi != null && r.roi < minPnl) issues.push(`수익률 미달 (${minPnl}% 미만)`);
-    if (r.roi != null && r.roi > 500) issues.push('수익률 과다 — 레버리지 의심');
-    if (r.mdd != null && r.mdd < maxMdd) issues.push(`MDD 한도 초과 (${maxMdd}%보다 나쁨)`);
-    if (r.followers != null && r.followers < minFol) issues.push('팔로워 부족');
-    if (r.followers != null && r.followers > maxFol) issues.push('팔로워 과다 — 슬리피지');
-
-    let cls, label;
-    if (!issues.length) { cls='verdict-pass'; label='✓ 기준 통과'; }
-    else if (issues.some(i => i.includes('미달') || i.includes('초과') || i.includes('부족'))) { cls='verdict-fail'; label='✗ ' + issues.join(' · '); }
-    else { cls='verdict-warn'; label='△ ' + issues.join(' · '); }
-
-    lastAnalysis.push({ ...r, pass: cls==='verdict-pass' });
+    const verdict = evaluateLeader({ pnl:r.roi, mdd:r.mdd, followers:r.followers }, rules);
+    lastAnalysis.push({ ...r, pass: verdict.pass, score: verdict.score, source: $('#f-source').value, capturedAt: new Date().toISOString() });
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -371,8 +385,9 @@ function analyzeBoard() {
       <td class="${(r.roi??0)>=0?'pos':'neg'}">${r.roi==null?'—':(r.roi>=0?'+':'')+r.roi+'%'}</td>
       <td>${r.mdd==null?'—':r.mdd+'%'}</td>
       <td>${r.followers==null?'—':Math.round(r.followers).toLocaleString()}</td>
-      <td class="${cls}">${label}</td>
-      <td>${r.pass?'<span class="pill on">대상</span>':'<span class="pill idle">제외</span>'}</td>`;
+      <td><b>${verdict.score}/100</b></td>
+      <td class="${verdict.cls}">${verdict.label}</td>
+      <td>${verdict.pass?'<span class="pill on">대상</span>':'<span class="pill idle">제외</span>'}</td>`;
     tbody.appendChild(tr);
   }
 }
@@ -387,9 +402,12 @@ $('#btn-passall').addEventListener('click', () => {
     if (!r.pass) continue;
     if (list.some(l => l.name === r.name)) continue;
     list.push({
-      name: r.name, exchange: '—', strategy: '리더보드 발굴',
+      name: r.name, exchange: r.source || '—', strategy: '리더보드 발굴',
       pnl: r.roi == null ? '' : String(r.roi),
       mdd: r.mdd == null ? '' : String(r.mdd),
+      followers: r.followers == null ? '' : String(r.followers),
+      score: r.score == null ? '' : String(r.score),
+      source: r.source || '', capturedAt: r.capturedAt || new Date().toISOString(),
       addedAt: Date.now(),
     });
     added++;
@@ -397,6 +415,36 @@ $('#btn-passall').addEventListener('click', () => {
   saveLeaders(list);
   renderLeaders();
   alert(`통과 리더 ${added}명을 추적 목록에 등록했습니다.`);
+});
+
+$('#btn-export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(loadLeaders(), null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cryptodash-leaders-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$('#file-import').addEventListener('change', async e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const imported = JSON.parse(await file.text());
+    if (!Array.isArray(imported) || imported.some(x => !x || typeof x.name !== 'string')) throw new Error('형식 오류');
+    const merged = [...loadLeaders()];
+    for (const leader of imported) {
+      if (!merged.some(x => x.name === leader.name && x.exchange === leader.exchange)) merged.push(leader);
+    }
+    saveLeaders(merged);
+    renderLeaders();
+    alert(`리더 ${imported.length}명을 확인했습니다. 중복은 제외하고 병합했습니다.`);
+  } catch (err) {
+    alert('가져오기 실패: 올바른 CryptoDash JSON 파일인지 확인해주세요.');
+  } finally {
+    e.target.value = '';
+  }
 });
 
 /* ── Boot ── */
